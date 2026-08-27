@@ -1,0 +1,449 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Bio-Sentinel — Infection Risk Intelligence Dashboard</title>
+<style>
+  :root{
+    --navy:#073B4C;
+    --navy-2:#0E4A57;
+    --navy-3:#0B3040;
+    --teal:#118AB2;
+    --mint:#06D6A0;
+    --alert:#EF476F;
+    --amber:#FFB703;
+    --ink:#0E2A33;
+    --grey:#6C8993;
+    --bg:#F2F7F8;
+    --card:#FFFFFF;
+    --line:#E1EAEC;
+    --font-head:'Iowan Old Style','Palatino Linotype',Palatino,Georgia,'Times New Roman',serif;
+    --font-body:'Segoe UI',Inter,-apple-system,BlinkMacSystemFont,Helvetica,Arial,sans-serif;
+    --font-mono:'SFMono-Regular',Consolas,'Liberation Mono',Menlo,monospace;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;background:var(--bg);color:var(--ink);font-family:var(--font-body);}
+  body{min-height:100vh;}
+
+  /* ---------- Top bar ---------- */
+  .topbar{
+    background:var(--navy);
+    color:#fff;
+    padding:16px 28px;
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    flex-wrap:wrap;
+    gap:12px;
+  }
+  .brand{display:flex;align-items:center;gap:12px;}
+  .brand .mark{
+    width:38px;height:38px;border-radius:50%;
+    background:radial-gradient(circle at 35% 30%, var(--mint), var(--teal) 70%);
+    display:flex;align-items:center;justify-content:center;
+    font-weight:700;font-size:13px;color:var(--navy);
+    box-shadow:0 0 0 3px rgba(6,214,160,0.18);
+  }
+  .brand h1{font-family:var(--font-head);font-size:21px;margin:0;letter-spacing:0.3px;}
+  .brand .sub{font-size:11px;color:#BFE3E9;letter-spacing:1.5px;text-transform:uppercase;margin-top:2px;}
+  .topbar-right{display:flex;align-items:center;gap:22px;font-size:12.5px;color:#CFE8ED;}
+  .live-dot{width:8px;height:8px;border-radius:50%;background:var(--mint);display:inline-block;margin-right:6px;box-shadow:0 0 0 0 rgba(6,214,160,.6);animation:pulse 1.8s infinite;}
+  @keyframes pulse{
+    0%{box-shadow:0 0 0 0 rgba(6,214,160,.5);}
+    70%{box-shadow:0 0 0 7px rgba(6,214,160,0);}
+    100%{box-shadow:0 0 0 0 rgba(6,214,160,0);}
+  }
+
+  /* ---------- Layout ---------- */
+  .wrap{max-width:1440px;margin:0 auto;padding:22px;}
+  .grid{
+    display:grid;
+    grid-template-columns: 300px 1fr 320px;
+    gap:18px;
+    align-items:start;
+  }
+  @media (max-width: 1150px){
+    .grid{grid-template-columns:1fr;}
+  }
+
+  .card{
+    background:var(--card);
+    border:1px solid var(--line);
+    border-radius:12px;
+    padding:18px 18px 16px;
+    box-shadow:0 1px 2px rgba(9,43,53,0.04);
+  }
+  .card h2{
+    font-family:var(--font-head);
+    font-size:15px;
+    margin:0 0 4px;
+    color:var(--navy);
+  }
+  .card .hint{font-size:11.5px;color:var(--grey);margin-bottom:14px;}
+  .section-gap{margin-top:18px;}
+
+  /* ---------- Alert banner ---------- */
+  .alertbar{
+    display:none;
+    background:linear-gradient(90deg, var(--alert), #d63a5f);
+    color:#fff;padding:13px 20px;border-radius:12px;
+    align-items:center;gap:12px;margin-bottom:18px;
+    box-shadow:0 4px 14px rgba(239,71,111,0.28);
+  }
+  .alertbar.show{display:flex;}
+  .alertbar .icon{font-size:20px;}
+  .alertbar b{font-weight:700;}
+  .alertbar .dismiss{
+    margin-left:auto;background:rgba(255,255,255,0.18);border:none;color:#fff;
+    padding:6px 12px;border-radius:7px;font-size:12px;cursor:pointer;
+  }
+  .alertbar .dismiss:hover{background:rgba(255,255,255,0.3);}
+
+  /* ---------- Fleet ---------- */
+  .robot{
+    border:1px solid var(--line);border-radius:10px;padding:12px;margin-bottom:10px;
+  }
+  .robot:last-child{margin-bottom:0;}
+  .robot-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;}
+  .robot-name{font-weight:700;font-size:13.5px;}
+  .status-pill{font-size:10px;padding:3px 9px;border-radius:20px;font-weight:600;letter-spacing:0.3px;}
+  .status-active{background:#E3F8F1;color:#04815E;}
+  .status-sterilizing{background:#FFF3D6;color:#8A5F00;}
+  .status-charging{background:#E9F1FB;color:#1C5D8C;}
+  .robot-meta{font-size:11.5px;color:var(--grey);display:flex;flex-direction:column;gap:4px;}
+  .meta-row{display:flex;justify-content:space-between;}
+  .bar-track{height:6px;background:#EEF3F4;border-radius:4px;overflow:hidden;margin-top:2px;}
+  .bar-fill{height:100%;border-radius:4px;background:var(--mint);transition:width .6s ease;}
+
+  /* ---------- Ward heatmap ---------- */
+  .ward-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;}
+  @media (max-width:640px){.ward-grid{grid-template-columns:repeat(2,1fr);}}
+  .ward{
+    border-radius:10px;padding:12px 10px;color:#fff;position:relative;
+    min-height:88px;display:flex;flex-direction:column;justify-content:space-between;
+    transition:transform .25s ease, box-shadow .25s ease;
+    cursor:default;
+  }
+  .ward:hover{transform:translateY(-2px);box-shadow:0 6px 16px rgba(9,43,53,0.18);}
+  .ward .wname{font-size:12px;font-weight:700;}
+  .ward .wscore{font-size:22px;font-weight:800;font-family:var(--font-head);}
+  .ward .wlabel{font-size:9.5px;letter-spacing:0.8px;text-transform:uppercase;opacity:.92;}
+  .risk-low{background:linear-gradient(135deg,#0aa27a,#06D6A0);}
+  .risk-medium{background:linear-gradient(135deg,#e0a100,#FFB703);color:#3a2900;}
+  .risk-high{background:linear-gradient(135deg,#e0673f,#ff8a5c);}
+  .risk-critical{background:linear-gradient(135deg,#c92a52,var(--alert));}
+  .legend{display:flex;gap:14px;margin-top:14px;flex-wrap:wrap;font-size:11px;color:var(--grey);}
+  .legend span{display:inline-flex;align-items:center;gap:6px;}
+  .legend i{width:9px;height:9px;border-radius:2px;display:inline-block;}
+
+  /* ---------- Trend chart ---------- */
+  .chart-wrap{margin-top:10px;}
+  svg#trend{width:100%;height:150px;display:block;}
+
+  /* ---------- Item pipeline / feed ---------- */
+  .feed{display:flex;flex-direction:column;gap:10px;max-height:520px;overflow-y:auto;padding-right:2px;}
+  .feed::-webkit-scrollbar{width:6px;}
+  .feed::-webkit-scrollbar-thumb{background:#D6E3E5;border-radius:6px;}
+  .feed-item{
+    border:1px solid var(--line);border-radius:10px;padding:10px 12px;font-size:12px;
+    color:var(--ink);background:#fff;
+  }
+  .feed-row1{display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;}
+  .feed-id{font-family:var(--font-mono);font-size:10.5px;color:var(--grey);}
+  .tag{font-size:9.5px;font-weight:700;padding:2px 8px;border-radius:20px;letter-spacing:.3px;}
+  .tag-infectious{background:#FDECEC;color:#B23A3A;}
+  .tag-sharps{background:#FEE7EC;color:#C23B5C;}
+  .tag-pharma{background:#E8EEFB;color:#3054A3;}
+  .tag-general{background:#EDEFF0;color:#4A5457;}
+  .feed-meta{color:var(--grey);font-size:11px;display:flex;justify-content:space-between;}
+  .risk-chip{font-weight:700;}
+  .rc-low{color:#04815E;}
+  .rc-medium{color:#8A5F00;}
+  .rc-high{color:#c25a1f;}
+  .rc-critical{color:var(--alert);}
+
+  /* ---------- KPI row ---------- */
+  .kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:18px;}
+  @media (max-width:800px){.kpis{grid-template-columns:repeat(2,1fr);}}
+  .kpi{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px 18px;}
+  .kpi .val{font-family:var(--font-head);font-size:27px;font-weight:800;color:var(--navy);}
+  .kpi .lbl{font-size:11px;color:var(--grey);text-transform:uppercase;letter-spacing:.6px;margin-top:2px;}
+
+  footer{
+    text-align:center;font-size:11px;color:var(--grey);padding:26px 10px 34px;
+  }
+</style>
+</head>
+<body>
+
+  <div class="topbar">
+    <div class="brand">
+      <div class="mark">BS</div>
+      <div>
+        <h1>Bio-Sentinel</h1>
+        <div class="sub">Infection Risk Intelligence Dashboard</div>
+      </div>
+    </div>
+    <div class="topbar-right">
+      <span><span class="live-dot"></span>Live simulation</span>
+      <span id="clock"></span>
+      <span>Ward B General Hospital · Demo Mode</span>
+    </div>
+  </div>
+
+  <div class="wrap">
+
+    <div class="alertbar" id="alertbar">
+      <span class="icon">⚠</span>
+      <span><b>Outbreak-risk alert:</b> <span id="alertText">Ward C infectious-waste risk score is 2.4× above its 7-day baseline.</span></span>
+      <button class="dismiss" onclick="dismissAlert()">Dismiss</button>
+    </div>
+
+    <div class="kpis">
+      <div class="kpi"><div class="val" id="kpiItems">0</div><div class="lbl">Items processed today</div></div>
+      <div class="kpi"><div class="val" id="kpiHigh">0</div><div class="lbl">High / critical risk items</div></div>
+      <div class="kpi"><div class="val" id="kpiAccuracy">98.6%</div><div class="lbl">Segregation accuracy</div></div>
+      <div class="kpi"><div class="val" id="kpiWards">4</div><div class="lbl">Wards monitored</div></div>
+    </div>
+
+    <div class="grid">
+
+      <!-- LEFT: Fleet -->
+      <div class="card">
+        <h2>Fleet Status</h2>
+        <div class="hint">Autonomous units currently on route</div>
+        <div id="fleet"></div>
+
+        <div class="section-gap">
+          <h2>UV-C &amp; Compliance</h2>
+          <div class="hint">Chain-of-custody, today</div>
+          <div class="robot-meta">
+            <div class="meta-row"><span>Items sterilized</span><b id="steriCount">0</b></div>
+            <div class="meta-row"><span>QR/RFID tags logged</span><b id="tagCount">0</b></div>
+            <div class="meta-row"><span>CBWTF handovers</span><b>2 scheduled</b></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- CENTER: Heatmap + trend -->
+      <div class="card">
+        <h2>Ward-Level Infection Risk Heatmap</h2>
+        <div class="hint">Aggregated IRI score by ward · updates every collection cycle</div>
+        <div class="ward-grid" id="wardGrid"></div>
+        <div class="legend">
+          <span><i style="background:#06D6A0"></i>Low</span>
+          <span><i style="background:#FFB703"></i>Medium</span>
+          <span><i style="background:#ff8a5c"></i>High</span>
+          <span><i style="background:#EF476F"></i>Critical</span>
+        </div>
+
+        <div class="section-gap">
+          <h2>Facility-Wide Risk Trend</h2>
+          <div class="hint">Average IRI score, last 24 collection cycles</div>
+          <div class="chart-wrap"><svg id="trend" viewBox="0 0 600 150" preserveAspectRatio="none"></svg></div>
+        </div>
+      </div>
+
+      <!-- RIGHT: Live feed -->
+      <div class="card">
+        <h2>Live Item Feed</h2>
+        <div class="hint">Classification &amp; risk score per collected item</div>
+        <div class="feed" id="feed"></div>
+      </div>
+
+    </div>
+  </div>
+
+  <footer>Bio-Sentinel Prototype · Simulated data for demonstration purposes · Smart India Hackathon 2026</footer>
+
+<script>
+(function(){
+  const wards = [
+    {name:"Ward A · General", base: 1.2},
+    {name:"Ward B · ICU", base: 2.1},
+    {name:"Ward C · Isolation", base: 2.6},
+    {name:"Ward D · Surgery", base: 1.8},
+  ];
+  const wardScores = wards.map(w => w.base);
+  const wardEls = {};
+
+  const robots = [
+    {name:"BS-Unit 01", status:"active", ward:"Ward A", battery: 82},
+    {name:"BS-Unit 02", status:"sterilizing", ward:"Ward C", battery: 61},
+    {name:"BS-Unit 03", status:"charging", ward:"Dock", battery: 34},
+  ];
+
+  const wasteTypes = [
+    {label:"Infectious", tag:"tag-infectious"},
+    {label:"Sharps", tag:"tag-sharps"},
+    {label:"Pharma", tag:"tag-pharma"},
+    {label:"General", tag:"tag-general"},
+  ];
+
+  let itemCount = 0, highCount = 0, steri = 0, tags = 0;
+  const trendHistory = [];
+
+  function riskBand(score){
+    if(score < 1.6) return {cls:"low", label:"Low", chip:"rc-low"};
+    if(score < 2.3) return {cls:"medium", label:"Medium", chip:"rc-medium"};
+    if(score < 3.0) return {cls:"high", label:"High", chip:"rc-high"};
+    return {cls:"critical", label:"Critical", chip:"rc-critical"};
+  }
+
+  function renderClock(){
+    document.getElementById('clock').textContent = new Date().toLocaleTimeString();
+  }
+  setInterval(renderClock, 1000); renderClock();
+
+  function renderFleet(){
+    const statusMap = {
+      active: {label:"On Route", cls:"status-active"},
+      sterilizing: {label:"Sterilizing", cls:"status-sterilizing"},
+      charging: {label:"Charging", cls:"status-charging"},
+    };
+    document.getElementById('fleet').innerHTML = robots.map(r => {
+      const s = statusMap[r.status];
+      return `<div class="robot">
+        <div class="robot-top">
+          <span class="robot-name">${r.name}</span>
+          <span class="status-pill ${s.cls}">${s.label}</span>
+        </div>
+        <div class="robot-meta">
+          <div class="meta-row"><span>Location</span><b>${r.ward}</b></div>
+          <div class="meta-row"><span>Battery</span><b>${Math.round(r.battery)}%</b></div>
+          <div class="bar-track"><div class="bar-fill" style="width:${r.battery}%; background:${r.battery<35 ? 'var(--amber)':'var(--mint)'}"></div></div>
+        </div>
+      </div>`;
+    }).join("");
+  }
+
+  function renderWards(){
+    const grid = document.getElementById('wardGrid');
+    grid.innerHTML = wards.map((w,i) => {
+      const band = riskBand(wardScores[i]);
+      return `<div class="ward risk-${band.cls}" id="ward-${i}">
+        <div class="wname">${w.name}</div>
+        <div>
+          <div class="wscore">${wardScores[i].toFixed(1)}</div>
+          <div class="wlabel">${band.label} risk</div>
+        </div>
+      </div>`;
+    }).join("");
+  }
+
+  function pushFeedItem(){
+    itemCount++;
+    const wtIdx = Math.floor(Math.random()*wasteTypes.length);
+    const wt = wasteTypes[wtIdx];
+    const wardIdx = Math.floor(Math.random()*wards.length);
+    const ward = wards[wardIdx];
+
+    // risk influenced by waste type + ward baseline + noise
+    let base = wardScores[wardIdx];
+    let typeBoost = wt.label === "Infectious" ? 0.9 : wt.label === "Sharps" ? 0.6 : wt.label === "Pharma" ? 0.3 : 0.05;
+    let score = Math.max(0.3, base * 0.5 + typeBoost + (Math.random()*1.1 - 0.3));
+    score = Math.min(score, 4.2);
+    const band = riskBand(score);
+    if(band.cls === "high" || band.cls === "critical") highCount++;
+    steri++; tags++;
+
+    const id = "BS-" + (100000 + Math.floor(Math.random()*899999));
+    const el = document.createElement('div');
+    el.className = "feed-item";
+    el.innerHTML = `
+      <div class="feed-row1">
+        <span class="feed-id">${id}</span>
+        <span class="tag ${wt.tag}">${wt.label}</span>
+      </div>
+      <div class="feed-meta">
+        <span>${ward.name}</span>
+        <span class="risk-chip ${band.chip}">${band.label} · ${score.toFixed(1)}</span>
+      </div>`;
+    const feed = document.getElementById('feed');
+    feed.prepend(el);
+    while(feed.children.length > 18) feed.removeChild(feed.lastChild);
+
+    // nudge ward score toward this new reading (slow moving average)
+    wardScores[wardIdx] = wardScores[wardIdx]*0.82 + score*0.18;
+    renderWards();
+    checkAlert(wardIdx);
+    updateKPIs();
+    updateTrend();
+  }
+
+  function updateKPIs(){
+    document.getElementById('kpiItems').textContent = itemCount;
+    document.getElementById('kpiHigh').textContent = highCount;
+    document.getElementById('steriCount').textContent = steri;
+    document.getElementById('tagCount').textContent = tags;
+  }
+
+  let alertShownFor = null;
+  function checkAlert(wardIdx){
+    const w = wards[wardIdx];
+    if(wardScores[wardIdx] > w.base * 1.9 && wardScores[wardIdx] > 2.6){
+      document.getElementById('alertText').textContent =
+        `${w.name} infectious-waste risk score is ${(wardScores[wardIdx]/w.base).toFixed(1)}× above baseline — Infection Control notified.`;
+      document.getElementById('alertbar').classList.add('show');
+    }
+  }
+  window.dismissAlert = function(){
+    document.getElementById('alertbar').classList.remove('show');
+  };
+
+  function updateTrend(){
+    const avg = wardScores.reduce((a,b)=>a+b,0)/wardScores.length;
+    trendHistory.push(avg);
+    if(trendHistory.length > 24) trendHistory.shift();
+    drawTrend();
+  }
+
+  function drawTrend(){
+    const svg = document.getElementById('trend');
+    const w = 600, h = 150, pad = 10;
+    const maxV = 4.2, minV = 0;
+    const n = trendHistory.length;
+    if(n < 2){ svg.innerHTML = ""; return; }
+    const stepX = (w - pad*2) / (Math.max(n,2)-1);
+    let pts = trendHistory.map((v,i) => {
+      const x = pad + i*stepX;
+      const y = h - pad - ((v-minV)/(maxV-minV))*(h-pad*2);
+      return [x,y];
+    });
+    const line = pts.map((p,i)=> (i===0?"M":"L")+p[0].toFixed(1)+","+p[1].toFixed(1)).join(" ");
+    const area = line + ` L${pts[pts.length-1][0].toFixed(1)},${h-pad} L${pts[0][0].toFixed(1)},${h-pad} Z`;
+    svg.innerHTML = `
+      <defs>
+        <linearGradient id="grad" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="#118AB2" stop-opacity="0.35"/>
+          <stop offset="100%" stop-color="#118AB2" stop-opacity="0"/>
+        </linearGradient>
+      </defs>
+      <line x1="${pad}" y1="${h-pad}" x2="${w-pad}" y2="${h-pad}" stroke="#E1EAEC" stroke-width="1"/>
+      <path d="${area}" fill="url(#grad)"/>
+      <path d="${line}" fill="none" stroke="#118AB2" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
+      ${pts.map(p=>`<circle cx="${p[0].toFixed(1)}" cy="${p[1].toFixed(1)}" r="2.4" fill="#073B4C"/>`).join("")}
+    `;
+  }
+
+  function tickFleet(){
+    robots.forEach(r=>{
+      if(r.status === "charging"){ r.battery = Math.min(100, r.battery + Math.random()*4); if(r.battery > 95) r.status="active"; }
+      else { r.battery = Math.max(5, r.battery - Math.random()*1.2); if(r.battery < 20) r.status="charging"; }
+    });
+    renderFleet();
+  }
+
+  // init
+  renderFleet();
+  renderWards();
+  for(let i=0;i<10;i++) updateTrend();
+  updateKPIs();
+
+  setInterval(pushFeedItem, 1700);
+  setInterval(tickFleet, 4000);
+})();
+</script>
+</body>
+</html>
