@@ -201,7 +201,7 @@
         <div class="section-gap">
           <h2>Route Optimization</h2>
           <div class="hint">Live shortest-path routing between wards, ICU, OT and the waste hub</div>
-          <div class="route-wrap"><svg id="routeMap" viewBox="0 0 640 260"></svg></div>
+          <div class="route-wrap"><svg id="routeMap" viewBox="0 -18 640 278"></svg></div>
           <div class="route-legend">
             <span><i style="background:#118AB2"></i>Waste Hub</span>
             <span><i style="background:#073B4C"></i>Ward / ICU / OT node</span>
@@ -239,7 +239,7 @@
     wb:   {name:"Ward B",     x:560, y:40,  type:"node"},
     icu:  {name:"ICU",        x:80,  y:220, type:"node"},
     ot:   {name:"OT",         x:560, y:220, type:"node"},
-    wc:   {name:"Ward C",     x:320, y:20,  type:"node"},
+    wc:   {name:"Ward C",     x:320, y:28,  type:"node"},
   };
   const edges = [["hub","wa"],["hub","wb"],["hub","icu"],["hub","ot"],["hub","wc"]];
 
@@ -406,4 +406,77 @@
   // ---------------- Alerts ----------------
   const alertTemplates = [
     {cls:"", text:"Sharps compartment on BS-Unit 02 has reached 95% capacity near ICU."},
-    {cls:"warn", text:"Bin fill level at Ward C waste p
+    {cls:"warn", text:"Bin fill level at Ward C waste point crossed 85% threshold."},
+    {cls:"info", text:"BS-Unit 01 completed contactless pickup at Ward A (0 staff contact events)."},
+    {cls:"warn", text:"Route re-optimized: OT round delayed by 6 minutes, path adjusted automatically."},
+    {cls:"", text:"Edge AI flagged possible mixed-hazard item at ICU collection point for staff review."},
+  ];
+  function pushAlert(){
+    const t = alertTemplates[Math.floor(Math.random()*alertTemplates.length)];
+    const el = document.createElement('div');
+    el.className = "alert-item " + t.cls;
+    el.innerHTML = `<div class="t1"><span>${new Date().toLocaleTimeString()}</span><span>${t.cls==='' ? 'HAZARD' : t.cls==='warn' ? 'CAPACITY' : 'INFO'}</span></div><div class="msg">${t.text}</div>`;
+    const feed = document.getElementById('alertFeed');
+    feed.prepend(el);
+    while(feed.children.length > 8) feed.removeChild(feed.lastChild);
+    if(t.cls === ""){
+      activeAlerts++;
+      document.getElementById('alertText').textContent = t.text;
+      document.getElementById('alertbar').classList.add('show');
+    }
+    if(t.cls === "info") contactFree++;
+    updateKPIs();
+  }
+  window.dismissAlert = function(){ document.getElementById('alertbar').classList.remove('show'); activeAlerts = Math.max(0, activeAlerts-1); updateKPIs(); };
+
+  function checkBinAlert(){
+    robots.forEach(r=>{
+      Object.keys(r.bins).forEach(k=>{
+        if(r.bins[k] > 92 && Math.random() < 0.15){
+          document.getElementById('alertText').textContent = `${r.id}: ${k} compartment at ${Math.round(r.bins[k])}% — schedule priority collection.`;
+          document.getElementById('alertbar').classList.add('show');
+        }
+      });
+    });
+  }
+
+  // ---------------- Classification ----------------
+  function renderClass(){
+    document.getElementById('classList').innerHTML = Object.keys(classCounts).map(k=>{
+      return `<div class="class-row">
+        <span><span class="dot" style="background:${binColors[k]}"></span>${k}</span>
+        <span class="class-count">${classCounts[k]}</span>
+      </div>`;
+    }).join("");
+  }
+  function tickClass(){
+    const keys = Object.keys(classCounts);
+    const k = keys[Math.floor(Math.random()*keys.length)];
+    classCounts[k]++;
+    renderClass();
+  }
+
+  // ---------------- KPIs ----------------
+  function updateKPIs(){
+    document.getElementById('kpiRounds').textContent = rounds;
+    document.getElementById('kpiAlerts').textContent = activeAlerts;
+    const avgFill = Math.round(robots.reduce((sum,r)=> sum + Object.values(r.bins).reduce((a,b)=>a+b,0)/4, 0) / robots.length);
+    document.getElementById('kpiFill').textContent = avgFill + "%";
+    document.getElementById('kpiContact').textContent = contactFree;
+  }
+
+  // ---------------- Init ----------------
+  renderFleet();
+  renderSchedule();
+  drawStaticMap();
+  renderClass();
+  updateKPIs();
+
+  setInterval(tickFleet, 4000);
+  setInterval(animateRoute, 60);
+  setInterval(pushAlert, 5000);
+  setInterval(tickClass, 3200);
+})();
+</script>
+</body>
+</html>
